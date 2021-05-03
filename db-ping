@@ -65,8 +65,8 @@ import inspect
 
 # Configuration parameters, some with default values
 config = {
-    'verbose': False,
-    'host': 'localhost',
+    'quiet': False,
+    'host': '',  # No default host, assume db-ping runners always wants to define host
     'port': 3306,
     'user': 'db-ping',
     'password': '',
@@ -109,7 +109,7 @@ parser.add_argument('--port', type=int, help='Database server port')
 parser.add_argument('--user', help='Database username')
 parser.add_argument('--password', help='Database user password')
 parser.add_argument('--database', help='Database name')
-parser.add_argument('--verbose', help='Increase verbosity', action='store_true')
+parser.add_argument('--quiet', help='Be less ', action='store_true')
 args = parser.parse_args()
 
 # Override default config values with:
@@ -126,10 +126,16 @@ for key in config:
         config[key] = mycnf.get('client', key)
         configFromConfigFiles.append(key)
 
-if config['verbose'] and len(configFromEnvironmentVariables) > 0:
+# Check that there is a value for each field
+if len(config['host']) == 0:
+    print('Error: No host defined')
+    print('Run "db-ping --help" for more information.')
+    sys.exit(1)
+
+if not config['quiet'] and len(configFromEnvironmentVariables) > 0:
     print('Using envs:', ', '.join(configFromEnvironmentVariables))
 
-if config['verbose'] and len(configFromConfigFiles) > 0:
+if not config['quiet'] and len(configFromConfigFiles) > 0:
     print('Using .my.cnf:', ', '.join(configFromConfigFiles))
 
 print(
@@ -139,8 +145,6 @@ print(
         config['port'],
     )
 )
-
-
 
 def new_connection(config):
     #pprint(dir(mariadb))
@@ -165,13 +169,21 @@ start = time.time()
 
 try:
     conn = new_connection(config)
+except mariadb.OperationalError as e:
+    # E.g. unknown host
+    print(f'Error: Unable to connect: {e}')
+    sys.exit(1)
 except mariadb.Error as e:
-    print(f'Connection failed: {e}')
+    print(f'Error: Connection failed: {e}')
     connection_time = round(time.time() - connect_start, 1)
     if round(connection_time) == 10:
-        print('ERROR: Timeout after 10 seconds')
+        print('Error: Timeout after 10 seconds')
     else:
         print(f'Connection closed after {connection_time} seconds')
+    sys.exit(1)
+except:
+    # E.g. unknown host
+    print(f'Error: {e}')
     sys.exit(1)
 
 # Check if host stars like an IPv4 or IPv6 address
@@ -211,7 +223,7 @@ server_debug = [
 #    'auto_reconnect',
 ]
 
-if config['verbose']:
+if not config['quiet']:
     for i in server_debug:
         print(' ', i + ':', getattr(conn, i))
 
@@ -254,25 +266,28 @@ counters = {
 old_counters = copy.deepcopy(counters)
 
 def print_status(now, previous):
-    # Don't print anything on the very first run when counters are empty
-    if now['ping']['seq'] == 0:
-        return
-
     if now['ping']['seq'] == previous['ping']['seq']:
-        print('Ping taking longer than 1 second...')
-        return
+        # Ping taking longer than 1 second, show time as zero
+        counters['ping']['time'] = 0
 
     if now['ping']['id'] != previous['ping']['id'] or \
        now['read']['id'] != previous['read']['id']:
         print('Database client reconnected')
 
     print(
-        '#{} {}s (connects: {}/4)'.format(
+        '{}#{} {}s (connects: {}/4)'.format(
+            round(time.time()-start),
             counters['seq'],
             round(counters['ping']['time'], 2),
             1 + now['ping']['connects'] + now['read']['connects'] + now['write']['connects'],
         )
     )
+    #print('Counters: {} {} {} {}'.format(
+    #    counters['seq'],
+    #    counters['ping']['seq'],
+    #    counters['read']['seq'],
+    #    counters['write']['seq'],
+    #))
 
     # Increment counter on every printed line
     now['seq'] += 1
@@ -285,7 +300,6 @@ def print_summary(now, previous):
     print('# Pings:', counters['ping']['seq'], '(SLA:', 100*(counters['ping']['seq']/counters['seq']), '%)')
     print('# Reads:', counters['read']['seq'], '(SLA:', 100*(counters['read']['seq']/counters['seq']), '%)')
     print('# Writes:', counters['write']['seq'], '(SLA:', 100*(counters['write']['seq']/counters['seq']), '%)')
-
 
 try:
     # Add thread for general database information and printer
@@ -325,24 +339,36 @@ try:
     for i in range(0, len(threads)):
         threads[i].start()
 
+    # Reset total wall clock here to ensure it starts from zero as the threads do
+    start = time.time()
+
     while control['run']:
+        # Tick every second, always show steady wall time. If a child thread is
+        # too slow, counters don't update and just show zero for that round.
+        time.sleep(1)
+        # Print immediately after sleep, shows latest results
         print_status(counters, old_counters)
         old_counters = copy.deepcopy(counters)
-        time.sleep(1.1)  # Must be a bit slower than threads to allow them time to complete
-        # However, this leads to main thread and child processes run different amount of #
+
+        # Stop if number of threads drop (meaning one crashed)
+        if threading.active_count() < 4:
+            print('Error: thread died')
+            control['run'] = False
 
     # Wait for all threads to complete
     # @TODO: Not really necessary for when Ctrl+C is the exit method
     for i in range(0, len(threads)):
         threads[i].join()
-    print('This will never print :)')
+
+    # This will not print on Ctrl+C but it will print if threads died and thus stop
+    print('Aborting...')
 
 except KeyboardInterrupt:
     control['run'] = False
     print('Aborting on CTRL+C...')
 
 finally:
-    print('Threads stopped')
+    # Always print summary, no matter the cause of stopping
     print_summary(counters, old_counters)
 
 # Free resources

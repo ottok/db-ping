@@ -31,7 +31,7 @@ def run(conn, control, counters):
     except mariadb.Error as e:
         print(f"Error: {e}")
     else:
-        if control['config']['verbose']:
+        if not control['config']['quiet']:
             uptime = timedelta(seconds=int(cur.fetchone()[1]))
             print(f'Uptime: {uptime}')
 
@@ -43,7 +43,7 @@ def run(conn, control, counters):
     except mariadb.Error as e:
         print(f"Error: {e}")
     else:
-        if control['config']['verbose']:
+        if not control['config']['quiet']:
             client_connection = cur.fetchone()[0]
             print(f'Client connection: {client_connection}')
 
@@ -52,7 +52,7 @@ def run(conn, control, counters):
     except mariadb.Error as e:
         print(f"Error: {e}")
     else:
-        if control['config']['verbose']:
+        if not control['config']['quiet']:
             server_hostname = cur.fetchone()[1]
             print(f'Server hostname: {server_hostname}')
 
@@ -61,7 +61,7 @@ def run(conn, control, counters):
     except mariadb.Error as e:
         print(f"Error: {e}")
     else:
-        if control['config']['verbose']:
+        if not control['config']['quiet']:
             max_connections = cur.fetchone()[1]
             print(f'Max connections: {max_connections}')
 
@@ -71,7 +71,7 @@ def run(conn, control, counters):
     except mariadb.Error as e:
         print(f"Error: {e}")
     else:
-        if control['config']['verbose']:
+        if not control['config']['quiet']:
             threads_connected = cur.fetchone()[1]
             print(f'Connections open at server: {threads_connected}')
 

@@ -40,14 +40,14 @@ def run(conn, control, counters):
         # Always update time
         counters['write']['time'] = time.time() - start
 
-        # Ensure increment never exceeds main counter, otherwise SLA cals will
-        # be over 100%
-        if counters['write']['seq'] <= counters['seq']:
-            counters['write']['seq'] += 1
+        # Increment counter
+        counters['write']['seq'] += 1
 
-
-        time.sleep(1)
-    print('Writer ended')
+        # Sleep must be accurately one second if the query was less than a
+        # second. If the query was over a second, the SLA as tracked by this
+        # tool is breached and sleeping a full second is correct behaviour.
+        if counters['write']['time'] < 1:
+            time.sleep(1-counters['write']['time'])
 
     # Free resources
     cur.close()

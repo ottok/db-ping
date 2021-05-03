@@ -22,14 +22,14 @@ def run(conn, control, counters):
         # Always update time
         counters['ping']['time'] = time.time() - start
 
-        # Ensure increment never exceeds main counter, otherwise SLA cals will
-        # be over 100%
-        if counters['ping']['seq'] <= counters['seq']:
-            counters['ping']['seq'] += 1
+        # Increment counter
+        counters['ping']['seq'] += 1
 
-        time.sleep(1)
-
-    print('Ping ended')
+        # Sleep must be accurately one second if the query was less than a
+        # second. If the query was over a second, the SLA as tracked by this
+        # tool is breached and sleeping a full second is correct behaviour.
+        if counters['write']['time'] < 1:
+            time.sleep(1-counters['write']['time'])
 
     # Free resources
     conn.close()
