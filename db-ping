@@ -47,6 +47,7 @@ be a separate table that nobody else uses, called 'db-ping'.
 import argparse
 import configparser
 import copy
+import dns.resolver
 import mariadb
 import sys
 import os
@@ -199,10 +200,16 @@ else:
         ip_list.append(addr[4][0])
     addr_info = ', '.join(ip_list)
 
-# @TODO: Check DNS server TTL time and repeat the lookup on that interval
-# @TODO: Check DNS server if CNAME and follow chain until A or AAAA records
+    dns_response = dns.resolver.query(config['host'])
+    dns_expiry = round(dns_response.expiration - time.time())
+    # @TODO: Check if record has DNSSEC signature yes/no
+    # @TODO: Check if DNSSEC signature is valid/invalid
 
 print(f'Successfully connected to {conn.server_name} ({addr_info})')
+
+if dns_response:
+    print(f'Hostname resolves to {dns_response.canonical_name.to_text()}')
+    print(f'DNS record expires in {dns_expiry} seconds')
 
 #pprint(dir(conn))
 #pprint(inspect.getmembers(conn))
