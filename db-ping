@@ -72,6 +72,7 @@ config = {
     'user': 'db-ping',
     'password': '',
     'database': '',
+    'ca_cert': None,  # Python argparse convers dashed to undescore
 }
 
 # As config names are not identical to their expected environment variable
@@ -110,6 +111,7 @@ parser.add_argument('--port', type=int, help='Database server port')
 parser.add_argument('--user', help='Database username')
 parser.add_argument('--password', help='Database user password')
 parser.add_argument('--database', help='Database name')
+parser.add_argument('--ca-cert', help='Path to custom CA pem file, needed if using self-signed TLS certificates')
 parser.add_argument('--quiet', help='Be less ', action='store_true')
 args = parser.parse_args()
 
@@ -117,6 +119,7 @@ args = parser.parse_args()
 # 1. Values from command-line arguments
 # 2. Values from environment variables
 # 3. Values from my.cnf
+# 4. Values from my.cnf with dash instead of underscore
 for key in config:
     if key in args and getattr(args, key) != None:
         config[key] = getattr(args, key)
@@ -125,6 +128,9 @@ for key in config:
         configFromEnvironmentVariables.append(configEnvMap[key])
     elif 'client' in mycnf.sections() and mycnf.has_option('client', key):
         config[key] = mycnf.get('client', key)
+        configFromConfigFiles.append(key)
+    elif 'client' in mycnf.sections() and mycnf.has_option('client', key.replace('_', '-')):
+        config[key] = mycnf.get('client', key.replace('_', '-'))
         configFromConfigFiles.append(key)
 
 # Check that there is a value for each field
@@ -160,6 +166,8 @@ def new_connection(config):
         read_timeout=10,
         write_timeout=10,
         ssl=True,  # Force TLS protection
+        ssl_verify_cert=True,  # Prevent man-in-the-middle attacks
+        ssl_ca=config['ca_cert'],
     )
     # https://mariadb-corporation.github.io/mariadb-connector-python/connection.html#auto_reconnect
     conn.auto_reconnect = True;
