@@ -56,10 +56,10 @@ import socket
 import time
 import threading
 
-import worker_status
-import worker_reader
-import worker_writer
-import worker_ping
+from . import worker_status
+from . import worker_reader
+from . import worker_writer
+from . import worker_ping
 
 from pprint import pprint
 import inspect
