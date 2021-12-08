@@ -72,7 +72,7 @@ config = {
     'user': 'db-ping',
     'password': '',
     'database': '',
-    'ca_cert': None,  # Python argparse convers dashed to undescore
+    'ca_cert': None,  # Python argparse converts dashes to undescores
 }
 
 # As config names are not identical to their expected environment variable
@@ -190,12 +190,12 @@ except mariadb.Error as e:
     else:
         print(f'Connection closed after {connection_time} seconds')
     sys.exit(1)
-except:
+except Exception as e:
     # E.g. unknown host
     print(f'Error: {e}')
     sys.exit(1)
 
-# Check if host stars like an IPv4 or IPv6 address
+# Check if host starts like an IPv4 or IPv6 address
 if re.search('(^[0-9]{1,3}\.)|(^[0-9a-fA-F]{1,4}:)', config['host']):
     # Show what name IP resolves to
     addr_info = socket.gethostbyaddr(config['host'])[0]
