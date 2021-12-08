@@ -73,6 +73,7 @@ config = {
     'password': '',
     'database': '',
     'ca_cert': None,  # Python argparse converts dashes to undescores
+    'insecure': False,
 }
 
 # As config names are not identical to their expected environment variable
@@ -111,7 +112,9 @@ parser.add_argument('--port', type=int, help='Database server port')
 parser.add_argument('--user', help='Database username')
 parser.add_argument('--password', help='Database user password')
 parser.add_argument('--database', help='Database name')
-parser.add_argument('--ca-cert', help='Path to custom CA pem file, needed if using self-signed TLS certificates')
+x = parser.add_mutually_exclusive_group()
+x.add_argument('--insecure', help="Don't verify TLS certificates", action='store_true')
+x.add_argument('--ca-cert', help='Path to custom CA pem file, needed if using self-signed TLS certificates')
 parser.add_argument('--quiet', help='Be less ', action='store_true')
 args = parser.parse_args()
 
@@ -166,7 +169,7 @@ def new_connection(config):
         read_timeout=10,
         write_timeout=10,
         ssl=True,  # Force TLS protection
-        ssl_verify_cert=True,  # Prevent man-in-the-middle attacks
+        ssl_verify_cert=not config['insecure'],  # Prevent man-in-the-middle attacks
         ssl_ca=config['ca_cert'],
     )
     # https://mariadb-corporation.github.io/mariadb-connector-python/connection.html#auto_reconnect
