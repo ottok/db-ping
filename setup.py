@@ -21,5 +21,5 @@ setup(
     install_requires=open("requirements.txt").read().splitlines(),
     url="https://github.com/ottok/db-ping",
     packages = ['db_ping'],
-    entry_points={ 'console_scripts': [ 'db-ping=db_ping.__main__' ] },
+    entry_points={ 'console_scripts': [ 'db-ping=db_ping.__main__:main' ] },
 )
