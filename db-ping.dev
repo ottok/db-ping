@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# This wrapper script runs the in-development
+# version of db-ping from this directory.
+
+PYTHONPATH="$(dirname $0):$PYTHONPATH" python3 -m db_ping "$@"
